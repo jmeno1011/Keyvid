@@ -24,8 +24,8 @@ function createIndicator() {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.72);
-    color: #fff;
+    background: rgba(9,13,11,0.78);
+    color: #63e58d;
     font-family: -apple-system, sans-serif;
     font-size: 22px;
     font-weight: 600;
@@ -39,7 +39,8 @@ function createIndicator() {
     white-space: nowrap;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(99,229,141,0.24);
+    box-shadow: 0 16px 42px rgba(0,0,0,0.36), 0 0 24px rgba(74,222,128,0.16);
   `;
   document.body.appendChild(indicator);
 }
