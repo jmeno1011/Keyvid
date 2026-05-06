@@ -2,12 +2,20 @@
   "manifest_version": 3,
   "name": "KeyVid",
   "description": "A browser extension that lets you control videos with keyboard shortcuts",
-  "version": "1.0",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "version": "1.1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -18,8 +26,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["youtube-bridge.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "youtube-bridge.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {
