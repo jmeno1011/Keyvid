@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KeyVid</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 320px;
+      background: #0f0f10;
+      color: #f0f0f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 8px #4ade80;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+    }
+
+    .subtitle {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .dot.disabled {
+      background: #71717a;
+      box-shadow: none;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .shortcuts {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .site-panel {
+      margin-bottom: 20px;
+    }
+
+    .site-card {
+      padding: 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .site-host {
+      margin-bottom: 10px;
+      color: #eee;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .site-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 9px 10px;
+      background: #f0f0f0;
+      color: #111;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.08);
+      color: #eee;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    button.danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .site-list {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .site-list.open {
+      display: flex;
+    }
+
+    .site-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.035);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .site-name {
+      color: #bbb;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .remove-site {
+      padding: 5px 8px;
+      background: rgba(239,68,68,0.14);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.28);
+      font-size: 11px;
+    }
+
+    .empty {
+      display: none;
+      margin-top: 10px;
+      color: #666;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .empty.visible {
+      display: block;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .desc {
+      font-size: 12px;
+      color: #bbb;
+    }
+
+    .keys {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-bottom: 2px solid rgba(255,255,255,0.22);
+      border-radius: 5px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-family: inherit;
+      color: #eee;
+      min-width: 28px;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="dot disabled" id="statusDot"></div>
+    <div>
+      <h1>KeyVid</h1>
+      <div class="subtitle" id="statusText">Loading site access</div>
+    </div>
+  </div>
+
+  <div class="site-panel">
+    <div class="section-label">Site access</div>
+    <div class="site-card">
+      <div class="site-host" id="currentHost">Current site unavailable</div>
+      <div class="site-actions">
+        <button id="toggleSite" disabled>Add current site</button>
+        <button class="secondary" id="toggleList" type="button">List</button>
+      </div>
+      <div class="site-list" id="siteList"></div>
+      <div class="empty" id="emptyList">No registered sites yet. Add the current site to enable shortcuts there.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Shortcuts</div>
+  <div class="shortcuts">
+    <div class="row">
+      <span class="desc">Seek forward 5 seconds</span>
+      <div class="keys"><kbd>→</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Seek backward 5 seconds</span>
+      <div class="keys"><kbd>←</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Volume up</span>
+      <div class="keys"><kbd>↑</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Volume down</span>
+      <div class="keys"><kbd>↓</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Play / pause</span>
+      <div class="keys"><kbd>Space</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Fullscreen</span>
+      <div class="keys"><kbd>F</kbd></div>
+    </div>
+    <div class="row">
+      <span class="desc">Mute</span>
+      <div class="keys"><kbd>M</kbd></div>
+    </div>
+  </div>
+
+  <div class="footer">Does not work while typing in input fields</div>
+  <script src="popup.js"></script>
+</body>
+</html>
