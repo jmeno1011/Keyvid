@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "KeyVid",
   "description": "A browser extension that lets you control videos with keyboard shortcuts",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "permissions": [
     "activeTab",
     "scripting",
