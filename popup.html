@@ -302,6 +302,18 @@
       font-size: 14px;
     }
 
+    #togglePositionPanel {
+      width: auto;
+      min-width: 34px;
+      height: 28px;
+      padding: 0 9px;
+      color: #e7e7e6;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line);
+      box-shadow: none;
+      font-size: 14px;
+    }
+
     .section-heading {
       display: flex;
       align-items: center;
@@ -395,6 +407,56 @@
 
     .empty.visible {
       display: block;
+    }
+
+    .position-panel {
+      display: none;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .position-panel.open {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .position-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .position-option {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 0;
+      height: 42px;
+      display: inline-grid;
+      place-items: center;
+      color: #d8dad9;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: none;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .position-option:hover:not(:disabled) {
+      background: rgba(99,229,141,0.12);
+      color: #fff;
+    }
+
+    .position-option.active {
+      color: #06200f;
+      background: linear-gradient(180deg, #74ee9d 0%, #4ade80 100%);
+      border-color: rgba(134,239,172,0.28);
+      box-shadow: 0 0 0 1px rgba(134,239,172,0.18);
+    }
+
+    .position-option.center {
+      font-size: 19px;
     }
 
     .shortcuts {
@@ -529,6 +591,22 @@
       </div>
       <div class="site-list" id="siteList" aria-hidden="true"></div>
       <div class="empty" id="emptyList">No registered sites yet. Add the current site to enable shortcuts there.</div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div class="section-label">Indicator position</div>
+        <button id="togglePositionPanel" type="button" aria-expanded="false">Show</button>
+      </div>
+      <div class="position-panel" id="positionPanel" aria-hidden="true">
+        <div class="position-row">
+          <button class="position-option" type="button" data-position="top-left" title="Top left" aria-label="Top left">↖</button>
+          <button class="position-option" type="button" data-position="top-right" title="Top right" aria-label="Top right">↗</button>
+          <button class="position-option center" type="button" data-position="center" title="Center" aria-label="Center">●</button>
+          <button class="position-option" type="button" data-position="bottom-left" title="Bottom left" aria-label="Bottom left">↙</button>
+          <button class="position-option" type="button" data-position="bottom-right" title="Bottom right" aria-label="Bottom right">↘</button>
+        </div>
+      </div>
     </section>
 
     <section>

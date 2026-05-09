@@ -10,8 +10,12 @@ let indicatorTimeout = null;
 let youtubeBridgeReady = false;
 let keyvidEnabled = false;
 let videoObserver = null;
+let indicatorPosition = 'center';
 
 const STORAGE_KEY = 'allowedSites';
+const INDICATOR_POSITION_KEY = 'indicatorPosition';
+const INDICATOR_MARGIN = 24;
+const INDICATOR_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 
 // ─── On-screen feedback indicator ──────────────────────────────────────────────
 
@@ -21,9 +25,6 @@ function createIndicator() {
   indicator.id = '__keyvid_indicator__';
   indicator.style.cssText = `
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     background: rgba(9,13,11,0.78);
     color: #63e58d;
     font-family: -apple-system, sans-serif;
@@ -42,12 +43,58 @@ function createIndicator() {
     border: 1px solid rgba(99,229,141,0.24);
     box-shadow: 0 16px 42px rgba(0,0,0,0.36), 0 0 24px rgba(74,222,128,0.16);
   `;
+  applyIndicatorPosition();
   document.body.appendChild(indicator);
 }
 
-function showIndicator(text) {
+function normalizeIndicatorPosition(position) {
+  return INDICATOR_POSITIONS.has(position) ? position : 'center';
+}
+
+function applyIndicatorPosition() {
+  if (!indicator) return;
+
+  const position = normalizeIndicatorPosition(indicatorPosition);
+  indicator.style.transform = '';
+  indicator.style.top = 'auto';
+  indicator.style.right = 'auto';
+  indicator.style.bottom = 'auto';
+  indicator.style.left = 'auto';
+
+  if (position === 'center') {
+    indicator.style.top = '50%';
+    indicator.style.left = '50%';
+    indicator.style.transform = 'translate(-50%, -50%)';
+  } else if (position === 'top-left') {
+    indicator.style.top = `${INDICATOR_MARGIN}px`;
+    indicator.style.left = `${INDICATOR_MARGIN}px`;
+  } else if (position === 'top-right') {
+    indicator.style.top = `${INDICATOR_MARGIN}px`;
+    indicator.style.right = `${INDICATOR_MARGIN}px`;
+  } else if (position === 'bottom-left') {
+    indicator.style.bottom = `${INDICATOR_MARGIN}px`;
+    indicator.style.left = `${INDICATOR_MARGIN}px`;
+  } else if (position === 'bottom-right') {
+    indicator.style.bottom = `${INDICATOR_MARGIN}px`;
+    indicator.style.right = `${INDICATOR_MARGIN}px`;
+  }
+}
+
+function getProgressPercent(video) {
+  if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return '';
+  const progress = Math.max(0, Math.min(100, Math.round((video.currentTime / video.duration) * 100)));
+  return `${progress}%`;
+}
+
+function formatIndicatorText(text, video) {
+  const progress = getProgressPercent(video);
+  return progress ? `${text} · ${progress}` : text;
+}
+
+function showIndicator(text, video) {
   createIndicator();
-  indicator.textContent = text;
+  indicator.textContent = formatIndicatorText(text, video);
+  applyIndicatorPosition();
   indicator.style.opacity = '1';
   clearTimeout(indicatorTimeout);
   indicatorTimeout = setTimeout(() => {
@@ -141,13 +188,14 @@ function setKeyVidEnabled(enabled) {
   console.log('[KeyVid] Disabled on unregistered site');
 }
 
-function refreshSiteAccess() {
-  chrome.storage.local.get({ [STORAGE_KEY]: [] }, result => {
+function refreshSettings() {
+  chrome.storage.local.get({ [STORAGE_KEY]: [], [INDICATOR_POSITION_KEY]: 'center' }, result => {
     if (chrome.runtime.lastError) {
       setKeyVidEnabled(false);
       return;
     }
 
+    indicatorPosition = normalizeIndicatorPosition(result[INDICATOR_POSITION_KEY]);
     setKeyVidEnabled(isCurrentSiteAllowed(result[STORAGE_KEY]));
   });
 }
@@ -226,7 +274,7 @@ function handleKeyDown(e) {
       e.stopPropagation();
       const seekTo = Math.min(video.currentTime + SEEK_SECONDS, video.duration || Infinity);
       video.currentTime = seekTo;
-      showIndicator(`▶▶  +${SEEK_SECONDS}s  (${formatTime(seekTo)})`);
+      showIndicator(`▶▶  +${SEEK_SECONDS}s  (${formatTime(seekTo)})`, video);
       break;
     }
     case 'ArrowLeft': {
@@ -234,7 +282,7 @@ function handleKeyDown(e) {
       e.stopPropagation();
       const seekTo = Math.max(video.currentTime - SEEK_SECONDS, 0);
       video.currentTime = seekTo;
-      showIndicator(`◀◀  -${SEEK_SECONDS}s  (${formatTime(seekTo)})`);
+      showIndicator(`◀◀  -${SEEK_SECONDS}s  (${formatTime(seekTo)})`, video);
       break;
     }
     case 'ArrowUp': {
@@ -244,7 +292,7 @@ function handleKeyDown(e) {
       if (newVol > 0) {
         video.muted = false;
       }
-      showIndicator(`🔊  Volume ${Math.round(video.volume * 100)}%`);
+      showIndicator(`🔊  Volume ${Math.round(video.volume * 100)}%`, video);
       break;
     }
     case 'ArrowDown': {
@@ -252,7 +300,7 @@ function handleKeyDown(e) {
       e.stopPropagation();
       const newVol = syncVolumeWithPlayer(video, video.volume - VOLUME_STEP);
       if (newVol === 0) video.muted = true;
-      showIndicator(`🔈  Volume ${Math.round(video.volume * 100)}%`);
+      showIndicator(`🔈  Volume ${Math.round(video.volume * 100)}%`, video);
       break;
     }
     case 'Space': {
@@ -262,10 +310,10 @@ function handleKeyDown(e) {
         e.stopPropagation();
         if (video.paused) {
           video.play();
-          showIndicator('▶  Play');
+          showIndicator('▶  Play', video);
         } else {
           video.pause();
-          showIndicator('⏸  Pause');
+          showIndicator('⏸  Pause', video);
         }
       }
       break;
@@ -305,7 +353,7 @@ function handleKeyDown(e) {
             }
           }
         }
-        showIndicator(video.muted ? '🔇  Muted' : '🔊  Unmuted');
+        showIndicator(video.muted ? '🔇  Muted' : '🔊  Unmuted', video);
       }
       break;
     }
@@ -314,9 +362,15 @@ function handleKeyDown(e) {
 
 // ─── Initialization ───────────────────────────────────────────────────────────
 
-refreshSiteAccess();
+refreshSettings();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local' || !changes[STORAGE_KEY]) return;
   setKeyVidEnabled(isCurrentSiteAllowed(changes[STORAGE_KEY].newValue));
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !changes[INDICATOR_POSITION_KEY]) return;
+  indicatorPosition = normalizeIndicatorPosition(changes[INDICATOR_POSITION_KEY].newValue);
+  applyIndicatorPosition();
 });

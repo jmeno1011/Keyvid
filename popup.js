@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'allowedSites';
+const POSITION_KEY = 'indicatorPosition';
 
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
@@ -13,11 +14,16 @@ const manualSiteInput = document.getElementById('manualSiteInput');
 const manualSiteSubmit = document.getElementById('manualSiteSubmit');
 const manualSiteCancel = document.getElementById('manualSiteCancel');
 const manualSiteFeedback = document.getElementById('manualSiteFeedback');
+const positionButtons = [...document.querySelectorAll('.position-option')];
+const positionPanel = document.getElementById('positionPanel');
+const togglePositionPanel = document.getElementById('togglePositionPanel');
 
 let activeHost = '';
 let allowedSites = [];
 let editingSite = '';
 let siteListOpen = false;
+let positionPanelOpen = false;
+let indicatorPosition = 'center';
 const hasChromeApi = typeof chrome !== 'undefined' && chrome.storage?.local && chrome.tabs?.query;
 
 function normalizeHost(host) {
@@ -66,6 +72,21 @@ function saveSites(nextSites) {
     return;
   }
   chrome.storage.local.set({ [STORAGE_KEY]: allowedSites }, render);
+}
+
+function normalizeIndicatorPosition(position) {
+  return ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].includes(position)
+    ? position
+    : 'center';
+}
+
+function saveIndicatorPosition(position) {
+  indicatorPosition = normalizeIndicatorPosition(position);
+  if (!hasChromeApi) {
+    render();
+    return;
+  }
+  chrome.storage.local.set({ [POSITION_KEY]: indicatorPosition }, render);
 }
 
 function getSiteType(site) {
@@ -150,6 +171,19 @@ function renderManualState() {
   manualSiteCancel.classList.toggle('visible', Boolean(editingSite));
 }
 
+function renderIndicatorPosition() {
+  for (const button of positionButtons) {
+    const active = button.dataset.position === indicatorPosition;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+
+  positionPanel.classList.toggle('open', positionPanelOpen);
+  positionPanel.setAttribute('aria-hidden', String(!positionPanelOpen));
+  togglePositionPanel.textContent = positionPanelOpen ? 'Hide' : 'Show';
+  togglePositionPanel.setAttribute('aria-expanded', String(positionPanelOpen));
+}
+
 function render() {
   const enabled = activeHost && isSiteAllowed(activeHost, allowedSites);
 
@@ -165,6 +199,7 @@ function render() {
 
   renderSiteList();
   renderManualState();
+  renderIndicatorPosition();
 }
 
 toggleSite.addEventListener('click', () => {
@@ -209,17 +244,30 @@ manualSiteForm.addEventListener('submit', event => {
 
 manualSiteCancel.addEventListener('click', clearManualEdit);
 
+togglePositionPanel.addEventListener('click', () => {
+  positionPanelOpen = !positionPanelOpen;
+  renderIndicatorPosition();
+});
+
+for (const button of positionButtons) {
+  button.addEventListener('click', () => {
+    saveIndicatorPosition(button.dataset.position);
+  });
+}
+
 if (hasChromeApi) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     activeHost = parseHost(tabs[0]?.url);
 
-    chrome.storage.local.get({ [STORAGE_KEY]: [] }, result => {
+    chrome.storage.local.get({ [STORAGE_KEY]: [], [POSITION_KEY]: 'center' }, result => {
       allowedSites = sortSites(result[STORAGE_KEY]);
+      indicatorPosition = normalizeIndicatorPosition(result[POSITION_KEY]);
       render();
     });
   });
 } else {
   activeHost = 'www.example.com';
   allowedSites = sortSites(['youtube.com', 'vimeo.com', 'example.com']);
+  indicatorPosition = 'center';
   render();
 }
