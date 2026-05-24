@@ -459,6 +459,63 @@
       font-size: 19px;
     }
 
+    .seek-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
+    .seek-layout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .seek-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    .seek-input {
+      flex: 0 0 5ch;
+      width: 5ch;
+      min-width: 0;
+      height: 28px;
+      padding: 0 10px;
+      color: #f7f7f6;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-align: right;
+      outline: none;
+    }
+
+    .seek-input:focus {
+      border-color: rgba(99,229,141,0.5);
+      box-shadow: 0 0 0 3px rgba(99,229,141,0.1);
+    }
+
+    .seek-unit {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
     .shortcuts {
       overflow: hidden;
       border: 1px solid var(--line);
@@ -610,16 +667,35 @@
     </section>
 
     <section>
+      <div class="seek-layout">
+        <div class="seek-title">Seek interval</div>
+        <div class="seek-controls">
+        <input
+          class="seek-input"
+          id="seekSecondsInput"
+          type="number"
+          min="1"
+          max="60"
+          step="1"
+          inputmode="numeric"
+          aria-label="Seek interval in seconds"
+        />
+        <span class="seek-unit">seconds</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <div class="section-label">Shortcuts</div>
       <div class="shortcuts">
         <div class="row">
           <span class="shortcut-icon" aria-hidden="true">▸▸</span>
-          <span class="desc">Seek forward 5 seconds</span>
+          <span class="desc" id="seekForwardLabel">Seek forward 5 seconds</span>
           <kbd>→</kbd>
         </div>
         <div class="row">
           <span class="shortcut-icon" aria-hidden="true">◂◂</span>
-          <span class="desc">Seek backward 5 seconds</span>
+          <span class="desc" id="seekBackwardLabel">Seek backward 5 seconds</span>
           <kbd>←</kbd>
         </div>
         <div class="row">

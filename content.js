@@ -1,7 +1,6 @@
 // KeyVid - content.js
 // Adds keyboard shortcut support to video players
 
-const SEEK_SECONDS = 5;
 const VOLUME_STEP = 0.05;
 
 let activeVideo = null;
@@ -11,9 +10,11 @@ let youtubeBridgeReady = false;
 let keyvidEnabled = false;
 let videoObserver = null;
 let indicatorPosition = 'center';
+let seekSeconds = 5;
 
 const STORAGE_KEY = 'allowedSites';
 const INDICATOR_POSITION_KEY = 'indicatorPosition';
+const SEEK_SECONDS_KEY = 'seekSeconds';
 const INDICATOR_MARGIN = 24;
 const INDICATOR_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 
@@ -189,15 +190,26 @@ function setKeyVidEnabled(enabled) {
 }
 
 function refreshSettings() {
-  chrome.storage.local.get({ [STORAGE_KEY]: [], [INDICATOR_POSITION_KEY]: 'center' }, result => {
+  chrome.storage.local.get({
+    [STORAGE_KEY]: [],
+    [INDICATOR_POSITION_KEY]: 'center',
+    [SEEK_SECONDS_KEY]: 5,
+  }, result => {
     if (chrome.runtime.lastError) {
       setKeyVidEnabled(false);
       return;
     }
 
     indicatorPosition = normalizeIndicatorPosition(result[INDICATOR_POSITION_KEY]);
+    seekSeconds = normalizeSeekSeconds(result[SEEK_SECONDS_KEY]);
     setKeyVidEnabled(isCurrentSiteAllowed(result[STORAGE_KEY]));
   });
+}
+
+function normalizeSeekSeconds(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return 5;
+  return Math.min(60, Math.max(1, parsed));
 }
 
 function requestYouTubeVolumeChange(action, volumePercent) {
@@ -272,17 +284,17 @@ function handleKeyDown(e) {
     case 'ArrowRight': {
       e.preventDefault();
       e.stopPropagation();
-      const seekTo = Math.min(video.currentTime + SEEK_SECONDS, video.duration || Infinity);
+      const seekTo = Math.min(video.currentTime + seekSeconds, video.duration || Infinity);
       video.currentTime = seekTo;
-      showIndicator(`▶▶  +${SEEK_SECONDS}s  (${formatTime(seekTo)})`, video);
+      showIndicator(`▶▶  +${seekSeconds}s  (${formatTime(seekTo)})`, video);
       break;
     }
     case 'ArrowLeft': {
       e.preventDefault();
       e.stopPropagation();
-      const seekTo = Math.max(video.currentTime - SEEK_SECONDS, 0);
+      const seekTo = Math.max(video.currentTime - seekSeconds, 0);
       video.currentTime = seekTo;
-      showIndicator(`◀◀  -${SEEK_SECONDS}s  (${formatTime(seekTo)})`, video);
+      showIndicator(`◀◀  -${seekSeconds}s  (${formatTime(seekTo)})`, video);
       break;
     }
     case 'ArrowUp': {
@@ -373,4 +385,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local' || !changes[INDICATOR_POSITION_KEY]) return;
   indicatorPosition = normalizeIndicatorPosition(changes[INDICATOR_POSITION_KEY].newValue);
   applyIndicatorPosition();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !changes[SEEK_SECONDS_KEY]) return;
+  seekSeconds = normalizeSeekSeconds(changes[SEEK_SECONDS_KEY].newValue);
 });
