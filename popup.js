@@ -22,7 +22,12 @@ const seekSecondsInput = document.getElementById('seekSecondsInput');
 const seekForwardLabel = document.getElementById('seekForwardLabel');
 const seekBackwardLabel = document.getElementById('seekBackwardLabel');
 
-let activeHost = '';
+let activePage = {
+  host: '',
+  path: '',
+  exactPattern: '',
+  displayPattern: '',
+};
 let allowedSites = [];
 let editingSite = '';
 let siteListOpen = false;
@@ -38,35 +43,121 @@ function normalizeHost(host) {
     .replace(/^www\./, '');
 }
 
-function parseHost(url) {
+function normalizePath(path) {
+  const normalized = String(path || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\/+$/, '');
+
+  if (!normalized || normalized === '/') return '';
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+}
+
+function normalizeSitePattern(pattern) {
+  const raw = String(pattern || '').trim().toLowerCase();
+  if (!raw) return '';
+
+  const cleaned = raw.replace(/\*+$/, '').replace(/\/+$/, '');
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(candidate);
     if (!['http:', 'https:'].includes(parsed.protocol)) return '';
-    return normalizeHost(parsed.hostname);
+    const host = normalizeHost(parsed.hostname);
+    const path = normalizePath(parsed.pathname);
+    return path ? `${host}${path}` : host;
   } catch {
     return '';
+  }
+}
+
+function splitSitePattern(pattern) {
+  const normalized = normalizeSitePattern(pattern);
+  if (!normalized) return { host: '', path: '' };
+
+  const slashIndex = normalized.indexOf('/');
+  if (slashIndex === -1) return { host: normalized, path: '' };
+
+  return {
+    host: normalized.slice(0, slashIndex),
+    path: normalizePath(normalized.slice(slashIndex)),
+  };
+}
+
+function formatSitePatternForDisplay(pattern) {
+  const { host, path } = splitSitePattern(pattern);
+  if (!host) return '';
+  return path ? `${host}${path}/*` : host;
+}
+
+function parseCurrentPage(url) {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return {
+      host: '',
+      path: '',
+      exactPattern: '',
+      displayPattern: '',
+    };
+
+    const host = normalizeHost(parsed.hostname);
+    const path = normalizePath(parsed.pathname);
+    const isYouTubeHost = host === 'youtube.com' || host.endsWith('.youtube.com');
+    const exactPattern = isYouTubeHost && path.startsWith('/shorts')
+      ? `${host}/shorts`
+      : host;
+    const displayPattern = exactPattern || host;
+
+    return {
+      host,
+      path,
+      exactPattern,
+      displayPattern,
+    };
+  } catch {
+    return {
+      host: '',
+      path: '',
+      exactPattern: '',
+      displayPattern: '',
+    };
   }
 }
 
 function parseSiteInput(value) {
   const rawValue = String(value || '').trim();
   if (!rawValue) return '';
-
-  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(rawValue) ? rawValue : `https://${rawValue}`;
-  return parseHost(candidate);
+  return normalizeSitePattern(rawValue);
 }
 
 function sortSites(sites) {
-  return [...new Set(sites.map(normalizeHost).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return [...new Set(sites.map(normalizeSitePattern).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
-function isSiteAllowed(host, sites) {
-  return Boolean(getMatchingSite(host, sites));
+function isPathMatch(currentPath, allowedPath) {
+  if (!allowedPath) return true;
+  return currentPath === allowedPath || currentPath.startsWith(`${allowedPath}/`);
 }
 
-function getMatchingSite(host, sites) {
-  const normalizedHost = normalizeHost(host);
-  return sites.find(site => normalizedHost === site || normalizedHost.endsWith(`.${site}`)) || '';
+function isPatternMatchCurrentPage(pattern) {
+  const { host: allowedHost, path: allowedPath } = splitSitePattern(pattern);
+  if (!allowedHost || !activePage.host) return false;
+
+  const hostMatches = activePage.host === allowedHost || activePage.host.endsWith(`.${allowedHost}`);
+  return hostMatches && isPathMatch(activePage.path, allowedPath);
+}
+
+function isSiteAllowed(page, sites) {
+  return Boolean(getMatchingSite(page, sites));
+}
+
+function getMatchingSite(page, sites) {
+  if (!page.host) return '';
+  return sites.find(site => {
+    const { host: allowedHost, path: allowedPath } = splitSitePattern(site);
+    const hostMatches = page.host === allowedHost || page.host.endsWith(`.${allowedHost}`);
+    return hostMatches && isPathMatch(page.path, allowedPath);
+  }) || '';
 }
 
 function saveSites(nextSites) {
@@ -110,8 +201,9 @@ function saveSeekSeconds(value) {
 }
 
 function getSiteType(site) {
-  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(site)) return 'youtube';
-  if (/(^|\.)vimeo\.com$/.test(site)) return 'vimeo';
+  const { host } = splitSitePattern(site);
+  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return 'youtube';
+  if (/(^|\.)vimeo\.com$/.test(host)) return 'vimeo';
   return 'default';
 }
 
@@ -143,7 +235,7 @@ function renderSiteList() {
 
     const name = document.createElement('span');
     name.className = 'site-name';
-    name.textContent = site;
+    name.textContent = formatSitePatternForDisplay(site);
 
     const edit = document.createElement('button');
     edit.className = 'edit-site';
@@ -153,7 +245,7 @@ function renderSiteList() {
     edit.textContent = '✎';
     edit.addEventListener('click', () => {
       editingSite = site;
-      manualSiteInput.value = site;
+      manualSiteInput.value = formatSitePatternForDisplay(site);
       manualSiteInput.focus();
       manualSiteSubmit.textContent = 'Save';
       manualSiteCancel.classList.add('visible');
@@ -211,17 +303,20 @@ function renderSeekSettings() {
 }
 
 function render() {
-  const enabled = activeHost && isSiteAllowed(activeHost, allowedSites);
+  const enabled = isSiteAllowed(activePage, allowedSites);
+  const exactRegistered = Boolean(activePage.exactPattern && allowedSites.includes(activePage.exactPattern));
 
   statusDot.classList.toggle('disabled', !enabled);
   statusText.textContent = enabled ? 'Enabled on this site' : 'Disabled on this site';
-  currentHost.textContent = activeHost || 'This page cannot be registered';
+  currentHost.textContent = activePage.displayPattern
+    ? formatSitePatternForDisplay(activePage.displayPattern)
+    : 'This page cannot be registered';
   currentBadge.textContent = enabled ? 'Enabled' : 'Disabled';
   currentBadge.classList.toggle('disabled', !enabled);
 
-  toggleSite.disabled = !activeHost;
-  toggleSite.textContent = enabled ? 'Remove current site' : 'Add current site';
-  toggleSite.classList.toggle('danger', Boolean(enabled));
+  toggleSite.disabled = !activePage.exactPattern;
+  toggleSite.textContent = exactRegistered ? 'Remove current site' : 'Add current site';
+  toggleSite.classList.toggle('danger', exactRegistered);
 
   renderSiteList();
   renderManualState();
@@ -230,15 +325,14 @@ function render() {
 }
 
 toggleSite.addEventListener('click', () => {
-  if (!activeHost) return;
+  if (!activePage.exactPattern) return;
 
-  const matchingSite = getMatchingSite(activeHost, allowedSites);
-  if (matchingSite) {
-    saveSites(allowedSites.filter(site => site !== matchingSite));
+  if (allowedSites.includes(activePage.exactPattern)) {
+    saveSites(allowedSites.filter(site => site !== activePage.exactPattern));
     return;
   }
 
-  saveSites([...allowedSites, activeHost]);
+  saveSites([...allowedSites, activePage.exactPattern]);
 });
 
 toggleList.addEventListener('click', () => {
@@ -292,7 +386,7 @@ seekSecondsInput.addEventListener('blur', () => {
 
 if (hasChromeApi) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    activeHost = parseHost(tabs[0]?.url);
+    activePage = parseCurrentPage(tabs[0]?.url);
 
     chrome.storage.local.get({ [STORAGE_KEY]: [], [POSITION_KEY]: 'center', [SEEK_SECONDS_KEY]: 5 }, result => {
       allowedSites = sortSites(result[STORAGE_KEY]);
@@ -302,7 +396,7 @@ if (hasChromeApi) {
     });
   });
 } else {
-  activeHost = 'www.example.com';
+  activePage = parseCurrentPage('https://www.youtube.com/shorts/example');
   allowedSites = sortSites(['youtube.com', 'vimeo.com', 'example.com']);
   indicatorPosition = 'center';
   seekSeconds = 5;

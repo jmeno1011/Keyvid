@@ -142,12 +142,65 @@ function normalizeHost(host) {
     .replace(/^www\./, '');
 }
 
+function normalizePath(path) {
+  const normalized = String(path || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\/+$/, '');
+
+  if (!normalized || normalized === '/') return '';
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+}
+
+function normalizeRegisteredPattern(pattern) {
+  const raw = String(pattern || '').trim().toLowerCase();
+  if (!raw) return '';
+
+  const cleaned = raw.replace(/\*+$/, '').replace(/\/+$/, '');
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+
+    const host = normalizeHost(parsed.hostname);
+    const path = normalizePath(parsed.pathname);
+    return path ? `${host}${path}` : host;
+  } catch {
+    return '';
+  }
+}
+
+function splitRegisteredPattern(pattern) {
+  const normalized = normalizeRegisteredPattern(pattern);
+  if (!normalized) return { host: '', path: '' };
+
+  const slashIndex = normalized.indexOf('/');
+  if (slashIndex === -1) return { host: normalized, path: '' };
+
+  return {
+    host: normalized.slice(0, slashIndex),
+    path: normalizePath(normalized.slice(slashIndex)),
+  };
+}
+
+function isPathMatch(currentPath, allowedPath) {
+  if (!allowedPath) return true;
+  return currentPath === allowedPath || currentPath.startsWith(`${allowedPath}/`);
+}
+
+function isPatternMatchCurrentPage(pattern) {
+  const { host: allowedHost, path: allowedPath } = splitRegisteredPattern(pattern);
+  if (!allowedHost) return false;
+
+  const currentHost = normalizeHost(location.hostname);
+  const currentPath = normalizePath(location.pathname);
+  const hostMatches = currentHost === allowedHost || currentHost.endsWith(`.${allowedHost}`);
+  return hostMatches && isPathMatch(currentPath, allowedPath);
+}
+
 function isCurrentSiteAllowed(sites) {
-  const host = normalizeHost(location.hostname);
-  return Array.isArray(sites) && sites.some(site => {
-    const allowedHost = normalizeHost(site);
-    return allowedHost && (host === allowedHost || host.endsWith(`.${allowedHost}`));
-  });
+  return Array.isArray(sites) && sites.some(isPatternMatchCurrentPage);
 }
 
 function removeRestrictiveVideoTabIndex() {
